@@ -171,7 +171,7 @@ void defaultConfig() {
 #ifdef TEMPERATURE
     // Temperaturanzeige zu jeder Minute
     CONFIG.temp_active                  = TEMPERATURE_MINUTE;
-    CONFIG.city                         = "Erlangen";
+    CONFIG.city                         = "Schwanstetten";
 #endif
 
     // allg. deutsche Sprache
