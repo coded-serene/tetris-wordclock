@@ -1,7 +1,11 @@
 #define WEBSERVER_CPP
+#include <Arduino.h>
+#include <WebServer.h>
 #include "MyWC12x12_config.h"
 
-#include <ESP8266WebServer.h>
+//#include <ESP8266WebServer.h>
+
+
 #include "MyWC12x12.h"
 #include "MyWC12x12_webserver.h"
 #include "MyWC12x12_temperatur.h"

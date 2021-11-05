@@ -28,7 +28,10 @@
 //
 //
 #define MyWC12x12_INO
-
+#include <Arduino.h>
+#include <WebServer.h>
+#include <LITTLEFS.h>
+#include <WiFi.h>
 #include "MyWC12x12_config.h"
 
 #include <WiFiManager.h>        // wifimanager by tablatronix  https://github.com/tzapu/WiFiManager
@@ -45,7 +48,7 @@
 
 #ifdef FEATURE_OTA
 #include <ArduinoOTA.h>         // OTA library
-#include <ESP8266mDNS.h>		// für OTA
+//#include <ESP8266mDNS.h>		// für OTA
 #endif
 
 #ifdef LAUFSCHRIFT
@@ -65,6 +68,13 @@ cLEDText ScrollingMsg;
 char buffer[256];
 #endif
 
+void saveConfig();
+void testPower();
+void loadConfig();
+void testLocale();
+void resetLEDs();
+void setBrightness(int b);
+void showTime(int hour, int minute);
 //
 // exportierte Variable
 //
@@ -189,7 +199,7 @@ void loadConfig() {
 
     defaultConfig();
 
-    File file = LittleFS.open(CONFIGFILE, "r");       // changed from SPIFFS (deprecated) to LittleFS
+    File file = LITTLEFS.open(CONFIGFILE, "r");       // changed from SPIFFS (deprecated) to LittleFS
 
     if (!file) {
         Serial.println("Failed to open config file.");
@@ -256,7 +266,7 @@ void loadConfig() {
 
 
 void saveConfig() {
-  File file = LittleFS.open(CONFIGFILE, "w");
+  File file = LITTLEFS.open(CONFIGFILE, "w");
 
   if (!file) {
     Serial.println("Can't open configfile for writing");
@@ -370,27 +380,7 @@ bool jetztDunkelschaltung(int hour, int minute) {
 //
 // Zeitfunktionen
 //
-bool getLocalTime(struct tm *info, uint32_t ms) {
-    uint32_t count = ms / 10;
-    time_t now;
-
-    time(&now);
-    localtime_r(&now, info);
-
-    if (info->tm_year > (2016 - 1900)) {
-        return true;
-    }
-
-    while (count--) {
-        delay(10);
-        time(&now);
-        localtime_r(&now, info);
-        if (info->tm_year > (2016 - 1900)) {
-            return true;
-        }
-    }
-    return false;
-}
+/**/
 
 void GetTimeAndDate(int *stunden, int *minuten, int *tag, int *monat, int *jahr) {
 	struct tm tmstruct;
@@ -717,12 +707,13 @@ void resetWiFi() {
   wifiManager.resetSettings();
 }
 void resetConfig() {
-  LittleFS.remove(CONFIGFILE);
+  LITTLEFS.remove(CONFIGFILE);
 }
 void resetAllAndReboot() {
   resetConfig();
   resetWiFi();
-  ESP.reset();
+  //ESP.reset();
+  ESP.restart();
   delay(5000);
 }
 
@@ -788,7 +779,7 @@ void setup() {
 #endif
 
 	// Dateisystem initialisieren
-	LittleFS.begin();
+	LITTLEFS.begin();
 
 	// Konfiguration laden
 	loadConfig();
@@ -816,7 +807,8 @@ void setup() {
 	if (!wifiManager.autoConnect("WordClock")) {
 		Serial.println("WiFiManager; failed to connect and hit timeout");
 		//reset and try again, or maybe put it to deep sleep
-		ESP.reset();
+		//ESP.reset();
+		ESP.restart();
 		delay(1000);
 	}
 
