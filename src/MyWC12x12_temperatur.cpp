@@ -22,7 +22,7 @@ String  mywc_g_debug_temperature;
 // Modulvariable
 int     l_last_valid_temperature 		= ERR_TEMP; // Wert der letzten erfolgreichen Temperaturabfrage
 int     l_temperature_error_count       = 1;
-WiFiClient l_client;
+WiFiClientSecure l_client;
 
 // Farbabstufung der Temperaturanzeige
 //
@@ -133,14 +133,17 @@ String GetTemperatureRealLocation(String city) {
   String location;
   int location_start;
   int location_end;
-
+  Serial.println("** GetTemperatureRealLocation_https2()");
   if (WiFi.status() == WL_CONNECTED) {                						//Check WiFi connection status
-    weatherstring = "http://wttr.in/" + city + "?1&lang=en";    //Specify request destination
+    weatherstring = "https://wttr.in/" + city + "?1";    //Specify request destination
+    //weatherstring = "/" + city + "?1";    //Specify request destination
 
     Serial.println(weatherstring);
 
     // Die HTTP-Antwort ist zu groß zum Lesen-In-Einem-Stück >25kB also stückweise lesen und gleich suchen nach Location: ... [
-
+    l_client.setInsecure();
+    http.setFollowRedirects(followRedirects_t::HTTPC_STRICT_FOLLOW_REDIRECTS);
+    //http.begin(l_client, "wttr.in", 443, weatherstring, true);
     http.begin(l_client, weatherstring);
 
     httpCode = http.GET();
@@ -229,10 +232,14 @@ int GetTemperature(String city) {
 
     temperature = ERR_TEMP;             // is a kind of error code!
     errorstring = "";                   // kein Fehlertext
-
+    Serial.println("** GetTemperature_https2()");
     if (WiFi.status() == WL_CONNECTED) {                            //Check WiFi connection status
-        weatherstring = "http://wttr.in/" + city + "?format=\%t";   //Specify request destination
+        weatherstring = "https://wttr.in/" + city + "?format=\%t";   //Specify request destination
 
+
+        l_client.setInsecure();
+        http.setFollowRedirects(followRedirects_t::HTTPC_STRICT_FOLLOW_REDIRECTS);
+    
         http.begin(l_client, weatherstring);
 
         // HTTP client errors
@@ -289,7 +296,8 @@ int GetTemperature(String city) {
     else {
         l_temperature_error_count = 0;
     }
-
+Serial.print("** GetTemperature_https2() - Return: ");
+Serial.println(temperature);
     return temperature;
 }
 

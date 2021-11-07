@@ -68,6 +68,9 @@ cLEDText ScrollingMsg;
 char buffer[256];
 #endif
 
+// forward decl
+void setup();
+void loop();
 void saveConfig();
 void testPower();
 void loadConfig();
@@ -800,7 +803,7 @@ void setup() {
 	// WLAN-Konfiguration
 	//
 	showWord(W_WLAN, CRGB::Red);
-	WiFi.hostname("WordClock");
+	WiFi.hostname("iotWordClock12x12");
 
 	wifiManager.setAPCallback(configModeCallback);
 
@@ -831,7 +834,7 @@ void setup() {
 
 	// Hostname defaults to esp8266-[ChipID]
 	// ArduinoOTA.setHostname("myesp8266");
-	ArduinoOTA.setHostname("WordClock");
+	ArduinoOTA.setHostname("iotWordClock12x12");
 
 	// No authentication by default
 	// ArduinoOTA.setPassword("admin");
