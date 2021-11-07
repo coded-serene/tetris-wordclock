@@ -75,6 +75,7 @@ String getTimeForm() {
   String label = "";
 
   // Anzeigefarbe
+  content += "<h2>Grundeinstellungen</h2>";
   content += "<div>";
   content += "<label>Vordergrundfarbe</label>";
   content += "<input name=\"fg\" value=\"#" + rgbToHex(CONFIG.color_fg) + "\" type=\"color\">";
@@ -141,7 +142,7 @@ String getTimeForm() {
 
   content += "<hr label=\"Dunkelschaltung\">";
   content += "<div>";
-  content += "<label>Nachtmodus</label>";
+  content += "<h2>Nachtmodus</h2>";
   // content += "<input type=\"checkbox\" name=\"dunkelschaltung_active\" value=\"1\"";
   // if (CONFIG.dunkelschaltung_active) {
   //   content += "checked";
@@ -186,7 +187,7 @@ String getTimeForm() {
 
 #ifdef TEMPERATURE
   content += "<hr>";
-
+  content += "<h2>Temperaturanzeige</h2>";
   content += "<div>";
   content += "<label>Temperaturanzeige</label>";
 
@@ -205,9 +206,26 @@ String getTimeForm() {
   content += "</div>";
 #endif
 
+
+/* MQTT-Config */
+  content += "<hr>";
+  content += "<h2>Netzwerk</h2>";
+  content += "<div>";
+  content += "<label>Hostname</label>";
+  content += "<input name=\"txtNetworkHostname\" value=\"" + String(CONFIG.networkHostname) + "\">";
+  content += "<label>MQTT-ServerName</label>";
+  content += "<input name=\"txtMqttServer\" value=\"" + String(CONFIG.mqttServerName) + "\">";
+  content += "<label>MQTT-Port</label>";
+  content += "<input name=\"txtMqttPort\" value=\"" + String(CONFIG.mqttPort) + "\">";
+  content += "<label>MQTT-UserName (empty if unsecure)</label>";
+  content += "<input name=\"txtMqttUserName\" value=\"" + String(CONFIG.mqttUserName) + "\" >";
+  content += "<label>MQTT-Password</label>";
+  content += "<input name=\"txtMqttPassword\" value=\"" + String(CONFIG.mqttPassword) + "\" >";
+  content += "</div>";
+/////////////////////
 #ifdef GEBURTSTAGE
   content += "<hr>";
-
+  content += "<h2>Geburtstage</h2>";
   content += "<div>";
   content += "<label>Name</label>";
   content += "<input name=\"geb_name_1\" value=\"" + String(CONFIG.geb_name_1) + "\" maxlength=\"24\">";
@@ -325,6 +343,13 @@ void change() {
 			if (server.hasArg("geb_name_4")) 					{ s = server.arg("geb_name_4"); 	s.toUpperCase();	CONFIG.geb_name_4 = s; }
 			if (server.hasArg("geb_name_5")) 					{ s = server.arg("geb_name_5"); 	s.toUpperCase();	CONFIG.geb_name_5 = s; }
 #endif
+
+      if (server.hasArg("txtMqttServer")) 					{ s = server.arg("txtNetworkHostname"); 	CONFIG.networkHostname = s; }
+      if (server.hasArg("txtMqttServer")) 					{ s = server.arg("txtMqttServer"); 	s.toUpperCase();	CONFIG.mqttServerName = s; }
+      if (server.hasArg("txtMqttPort")) 					{ CONFIG.mqttPort = server.arg("txtMqttPort").toInt(); }
+      if (server.hasArg("txtMqttUserName")) 					{ s = server.arg("txtMqttUserName"); 	CONFIG.mqttUserName = s; }
+      if (server.hasArg("txtMqttPassword")) 					{ s = server.arg("txtMqttPassword"); 	CONFIG.mqttPassword = s; }
+
 			//
 			// Änderungen durchsetzen
 			//
@@ -356,6 +381,7 @@ void handleRootPath() {
   content += "button { display: inline-block; width: 100%; font-size: 1.4rem; background-color: green; border: 1px solid #eee; color: #fff; padding-top: 10px; padding-bottom: 10px; }\n";
   content += "button.danger {  background-color: red;  }\n";
   content += "button.test {  background-color: yellow; }\n";
+  content += "h2 { font-size:medium; }\n";
   content += "</style>\n";
   content += "</head>\n";
   content += "<body>\n";

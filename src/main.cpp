@@ -58,12 +58,16 @@
 #include <LEDText.h>            // LEDText V6 class by Aaron Liddiment (c) 2015
 #include <FontMatrise.h>        // LEDText V6 class by Aaron Liddiment (c) 2015
 
+
+#define FORMAT_LITTLEFS_IF_FAILED true
 #define MATRIX_TYPE    HORIZONTAL_ZIGZAG_MATRIX
 
 cLEDMatrix < GRID_COLS, -GRID_ROWS, MATRIX_TYPE > mleds;
 cLEDText ScrollingMsg;
 
-#define LAUFSCHRIFT_SPEED	150
+//#define LAUFSCHRIFT_SPEED	100
+#define NETWORK_HOSTNAME_DEFAULT "hostWordClock12x12"
+#define NETWORK_HOSTNAME_AP "APWordClock12x12"
 
 char buffer[256];
 #endif
@@ -237,6 +241,19 @@ void loadConfig() {
     CONFIG.dunkelschaltung_end          = doc["dunkelschaltung_end"].as<int>();
     CONFIG.dunkelschaltung_brightness   = doc["dunkelschaltung_brightness"].as<int>();
 
+
+	CONFIG.networkHostname   = doc["networkHostname"].as<String>();
+	if(CONFIG.networkHostname==NULL || CONFIG.networkHostname.length()==0)
+	{
+		CONFIG.networkHostname = NETWORK_HOSTNAME_DEFAULT;
+	}
+	CONFIG.mqttServerName   = doc["mqttServerName"].as<String>();
+	CONFIG.mqttPort   = doc["mqttPort"].as<int>();
+	CONFIG.mqttUserName   = doc["mqttUserName"].as<String>();
+	CONFIG.mqttPassword   = doc["mqttPassword"].as<String>();
+
+
+
     setBrightness(BRIGHTNESS_AUTO);
 
 #ifdef TEMPERATURE
@@ -318,6 +335,12 @@ void saveConfig() {
 #endif
   doc["herz"] 						= CONFIG.herz;
   doc["dat_herz"] 					= CONFIG.dat_herz;
+
+	doc["networkHostname"] 					= CONFIG.networkHostname;
+	doc["mqttServerName"] 					= CONFIG.mqttServerName;
+	doc["mqttPort"] 					= CONFIG.mqttPort;
+	doc["mqttUserName"] 					= CONFIG.mqttUserName;
+	doc["mqttPassword"] 					= CONFIG.mqttPassword;
 
   serializeJson(doc, file);
 
@@ -755,86 +778,19 @@ void restart() {
 	// Zeitanzeige in loop() erzwingen
 	hour = -1;
 }
-
-//
-// Initialisierung
-//
-void setup() {
-	IPAddress ipL;
-
-
-	Serial.begin(115200);
-
-#ifdef GEBURTSTAGE
-	Serial.println("Feature Geburtstage enabled!");
-#endif
-#ifdef LAUFSCHRIFT
-	Serial.println("Feature Laufschrift enabled!");
-#endif
-#ifdef TEMPERATURE
-	Serial.println("Feature Temperaturanzeige enabled!");
-#endif
-#ifdef FEATURE_OTA
-	Serial.println("Feature OTA enabled!");
-#endif
-#ifdef FEATURE_BG
-	Serial.println("Feature Background enabled!");
-#endif
-
-	// Dateisystem initialisieren
-	LITTLEFS.begin();
-
-	// Konfiguration laden
-	loadConfig();
-
-	// LEDstreifen anhängen
-	FastLED.addLeds<WS2812B, DATA_PIN, LEDCOLORORDER>(leds, NUM_LEDS);
-
-#ifdef LAUFSCHRIFT
-	mleds.SetLEDArray(&leds[0]);
-
-	ScrollingMsg.SetFont(MatriseFontData);
-	ScrollingMsg.Init(&mleds, mleds.Width(), ScrollingMsg.FontHeight() + 1, 0, 0);
-#endif
-
-	// initiale Helligkeit setzen
-	setBrightness(BRIGHTNESS_DEFAULT);
-
-	// WLAN-Konfiguration
-	//
-	showWord(W_WLAN, CRGB::Red);
-	WiFi.hostname("iotWordClock12x12");
-
-	wifiManager.setAPCallback(configModeCallback);
-
-	if (!wifiManager.autoConnect("WordClock")) {
-		Serial.println("WiFiManager; failed to connect and hit timeout");
-		//reset and try again, or maybe put it to deep sleep
-		//ESP.reset();
-		ESP.restart();
-		delay(1000);
-	}
-
-	showWord(W_WLAN, CRGB::Green);
-	delay(1000);
-
-	ipL = WiFi.localIP();
-	ip = ipL.toString();
-	showIP(ipL.toString());
-	//
-	// WLAN-Konfiguration passt
-
-
+void setupOTA(void)
+{
 	// OTA
 	//
+	Serial.println("OTA config....");
 #ifdef FEATURE_OTA
 	// Port defaults to 8266
 	// ArduinoOTA.setPort(8266);
-	ArduinoOTA.setPort(8266);
+	ArduinoOTA.setPort(3232);
 
 	// Hostname defaults to esp8266-[ChipID]
 	// ArduinoOTA.setHostname("myesp8266");
-	ArduinoOTA.setHostname("iotWordClock12x12");
+	ArduinoOTA.setHostname(CONFIG.networkHostname.c_str());
 
 	// No authentication by default
 	// ArduinoOTA.setPassword("admin");
@@ -876,8 +832,99 @@ void setup() {
 	});
 
 	ArduinoOTA.begin();             //OTA initialization
-	Serial.println("OTA ready");
+	Serial.println("OTA ready.");
 #endif
+}
+//
+// Initialisierung
+//
+void setup() {
+	IPAddress ipL;
+
+
+	Serial.begin(115200);
+
+#ifdef GEBURTSTAGE
+	Serial.println("Feature Geburtstage enabled!");
+#endif
+#ifdef LAUFSCHRIFT
+	Serial.println("Feature Laufschrift enabled!");
+#endif
+#ifdef TEMPERATURE
+	Serial.println("Feature Temperaturanzeige enabled!");
+#endif
+#ifdef FEATURE_OTA
+	Serial.println("Feature OTA enabled!");
+#endif
+#ifdef FEATURE_BG
+	Serial.println("Feature Background enabled!");
+#endif
+
+	// Dateisystem initialisieren
+	Serial.print("*** Mounting LITTLEFS....");
+	if(!LITTLEFS.begin())
+	{
+		Serial.println("failed.");
+		Serial.println("Try mount with format...");
+		if(!LITTLEFS.begin(FORMAT_LITTLEFS_IF_FAILED))
+		{
+        	Serial.println("second chance failed. :-(");
+		}
+		else
+		{
+			Serial.println("succeeded.");
+		}
+	}
+	else
+	{
+		Serial.println("succeeded.");
+	}
+
+	
+
+	// Konfiguration laden
+	loadConfig();
+
+	// LEDstreifen anhängen
+	FastLED.addLeds<WS2812B, DATA_PIN, LEDCOLORORDER>(leds, NUM_LEDS);
+
+#ifdef LAUFSCHRIFT
+	mleds.SetLEDArray(&leds[0]);
+
+	ScrollingMsg.SetFont(MatriseFontData);
+	ScrollingMsg.Init(&mleds, mleds.Width(), ScrollingMsg.FontHeight() + 1, 0, 0);
+#endif
+
+	// initiale Helligkeit setzen
+	setBrightness(BRIGHTNESS_DEFAULT);
+
+	// WLAN-Konfiguration
+	//
+	showWord(W_WLAN, CRGB::Red);
+	WiFi.hostname(CONFIG.networkHostname.c_str());
+
+	wifiManager.setAPCallback(configModeCallback);
+
+	if (!wifiManager.autoConnect(NETWORK_HOSTNAME_AP)) {
+		Serial.println("WiFiManager; failed to connect and hit timeout");
+		//reset and try again, or maybe put it to deep sleep
+		//ESP.reset();
+		ESP.restart();
+		delay(1000);
+	}
+
+	showWord(W_WLAN, CRGB::Green);
+	delay(1000);
+
+	ipL = WiFi.localIP();
+	ip = ipL.toString();
+	showIP(ipL.toString());
+	//
+	// WLAN-Konfiguration passt
+
+	// OTA-Konfiguration
+	setupOTA();
+	
 
     g_heute_tag        = -1;
     myMode             = MODE_TEMP_FIRST;			// aktueller Anzeigemodus für den Zustandsautomaten
@@ -896,6 +943,13 @@ void setup() {
 }
 
 void loop() {
+	//
+	// evtl. Update Einspielen
+	//
+#ifdef FEATURE_OTA
+	ArduinoOTA.handle();
+#endif
+
 
 #if defined(GEBURTSTAGE) || defined(TEMPERATURE)
 	unsigned long jetzt;
@@ -912,9 +966,10 @@ void loop() {
 	//
 	// Diese Aktionen sollten nur noch einmal pro Minute laufen
 	//
-	if (hour != g_hour || minute != g_minute) {
+	if (hour != g_hour || minute != g_minute) 
+	{
 
-    Serial.println("loop() new minute");
+    	Serial.println("loop() new minute");
 
 		// neue Minute
 		hour 		= g_hour;
@@ -929,7 +984,7 @@ void loop() {
 		if ((g_minute % 5 == 0) && (WiFi.status() != WL_CONNECTED)) {
 			// alle 5 Minuten
 			// Falls das WLAN nicht funktioniert, reconnect versuchen
-            (void)wifiManager.autoConnect("WordClock");
+            (void)wifiManager.autoConnect(CONFIG.networkHostname.c_str());
         }
 	}
 
@@ -1074,12 +1129,7 @@ void loop() {
 	}
 #endif
 
-	//
-	// evtl. Update Einspielen
-	//
-#ifdef FEATURE_OTA
-	ArduinoOTA.handle();
-#endif
+
 
 	//
 	// Webserver bedienen

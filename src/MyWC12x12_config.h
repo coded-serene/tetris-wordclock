@@ -80,6 +80,12 @@ typedef struct {
 #endif
   int herz;
   int dat_herz;
+
+  String networkHostname;
+  String mqttServerName;
+  int mqttPort;
+  String mqttUserName;
+  String mqttPassword;
 } config_t;
 
 #define HERZ_AUS 			0		// grundsätzlich ist das Herz aus (Hintergrundfarbe)
@@ -101,6 +107,6 @@ typedef struct {
 #define BRIGHTNESS_DEFAULT	75
 #define BRIGHTNESS_MAX		100
 
-#define LAUFSCHRIFT_SPEED 	150
+#define LAUFSCHRIFT_SPEED 	100
 
 #endif
