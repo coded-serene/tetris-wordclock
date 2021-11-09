@@ -35,6 +35,7 @@
 #include "MyWC12x12_config.h"
 
 #include <WiFiManager.h>        // wifimanager by tablatronix  https://github.com/tzapu/WiFiManager
+#include <PubSubClient.h>
 #include <FastLED.h>            // http://fastled.io      https://github.com/FastLED/FastLED
 #include <NTPClient.h>          // The MIT License (MIT) Copyright (c) 2015 by Fabrice Weinberg
 #include "LittleFS.h"
@@ -125,7 +126,8 @@ int geburtstag_ende             = 0;
 // Wifi-Manager für die Netzverbindung
 WiFiManager wifiManager;
 
-
+WiFiClient espClient;
+PubSubClient m_mqttClient(espClient);
 //
 //
 //
@@ -777,6 +779,7 @@ void restart() {
 
 	// Zeitanzeige in loop() erzwingen
 	hour = -1;
+	ESP.restart();
 }
 void setupOTA(void)
 {
@@ -834,6 +837,163 @@ void setupOTA(void)
 	ArduinoOTA.begin();             //OTA initialization
 	Serial.println("OTA ready.");
 #endif
+}
+bool mqttReconnect(int maxTrails=10);
+
+void wifiReconnect(void)
+{
+
+}
+void mqttMaintain(void)
+{
+	if (!m_mqttClient.connected()) 
+    {
+        mqttReconnect();
+    }
+    m_mqttClient.loop();
+}
+bool mqttEnabled = true;
+bool mqttReconnect(int maxTrails/*=10*/) 
+{
+	if(!mqttEnabled)
+		return false;
+
+  	// Loop until we're reconnected
+  	unsigned long nextTrial = 0;
+	int trailCount=0;
+	bool succeeded = false;
+
+	do
+	{
+		if(m_mqttClient.connected())
+		{
+			return true;
+		}
+
+		if(millis() < nextTrial)
+			continue;
+			
+		if(WiFi.status() != WL_CONNECTED)
+		{
+			// Es gibt keine Wifi-Connection mehr....
+			wifiReconnect();
+		}
+
+		Serial.println("Attempting MQTT connection: ");
+		String clientId = "espMqtt";
+		clientId += CONFIG.networkHostname;
+		clientId += String(random(0xffff), HEX);
+		
+		// Attempt to connect
+		Serial.print("ClientID: "+clientId);
+		Serial.print(" - ");
+		if (m_mqttClient.connect(clientId.c_str(),CONFIG.mqttUserName.c_str(),CONFIG.mqttPassword.c_str())) 
+		{
+			// Once connected, publish an announcement...
+			String iotDeviceBaseTopic(CONFIG.networkHostname);
+			String startupTopic = iotDeviceBaseTopic+("/StartupClient");
+			String mqttTopic2Subscribe=iotDeviceBaseTopic+"/Config/#";
+
+			String welcomeMessage("ClientID: ");
+			welcomeMessage += clientId+"\n\rSubribe2Message: "+mqttTopic2Subscribe;
+			m_mqttClient.publish(startupTopic.c_str(), welcomeMessage.c_str());
+
+			
+			if(iotDeviceBaseTopic != NULL)
+			{
+				Serial.print("- Subscribed Topic: ");
+				Serial.print(mqttTopic2Subscribe);
+				m_mqttClient.subscribe(mqttTopic2Subscribe.c_str());
+			}
+			Serial.println("- MQTT connected.");
+			return true;
+		} 
+		else 
+		{
+			Serial.print("failed, rc=");
+			Serial.print(m_mqttClient.state());
+			Serial.println(" try again in 3 seconds");
+			// Wait 5 seconds before retrying
+			nextTrial = millis()+3000;
+			trailCount++;
+		}
+  	}
+	while (trailCount < maxTrails);
+
+    return false;
+}
+void mqttReceiveCallback(char* topic, byte* payload, unsigned int length);
+void setupMQTT(void)
+{
+	Serial.println("*** Setup MQTT....");
+	m_mqttClient.setServer(CONFIG.mqttServerName.c_str(), CONFIG.mqttPort);
+	m_mqttClient.setCallback(mqttReceiveCallback);
+	if(mqttReconnect(-1) == false)
+	{
+		// der erste Aufruf hat schon nicht geklappt. -> ab jetzt kein mqtt mehr!
+		mqttEnabled=false;
+		Serial.println("*** Setup MQTT failed. Disabled.");
+	}
+	else
+	{
+		Serial.println("*** Setup MQTT succeeded.");
+	}
+}
+void mqttReceiveCallback(char* topic, byte* payload, unsigned int length) 
+{
+    
+    if(payload == 0x00 || topic == 0x00)
+    {
+      return;
+    }
+    
+    payload[length] = '\0';
+    String topicString = String(topic);
+    Serial.println("");
+    Serial.print("[MQTT-main] Message arrived. Topic: "); Serial.print(topicString.c_str()); Serial.print(" - payload length: "); Serial.println(length);
+    /*
+    if(clockModeActive==true)
+    {
+      if(payload[0]=='r')
+      {
+        //  wir schalten gerade mit dem ersten Call tetris ein!
+        tetris.InitTetris();
+        Serial.println("Tetris initialized");
+        clockModeActive=false;
+        wishClockMode=false; 
+        autoClockActivateTime=millis()+60000;
+        Serial.print("currentTime=");Serial.println(millis());
+        Serial.print("autoClockActivateTime=");Serial.println(autoClockActivateTime);
+
+      }
+    }
+    else
+    {
+      // wir sind derzeit im Tetris-Mode!
+      clockModeActive=false;
+      // extract payload
+      Serial.print(F("Payload (string): "));
+      Serial.println((char*)payload);
+      userAction action = userAction::None;
+      switch(payload[0])
+      {
+        case 'r': //clockModeActive=true;
+                  wishClockMode=true;
+                  Serial.println("*********** EXIT TETRIS. Back to Clock!");
+                  break;
+
+        case 'a': action = userAction::MoveLeft; break;
+        case 's': action = userAction::MoveRight; break;
+        case 'y': action = userAction::MoveDown; break;
+        case ' ': action = userAction::Fire; break;
+        
+        default: break;
+      }
+      if(action != userAction::None)
+      {
+        tetris.OnUserAction(leds,action);
+      }
+    }*/
 }
 //
 // Initialisierung
@@ -931,9 +1091,11 @@ void setup() {
 #ifdef TEMPERATURE
     mywc_g_temperature = ERR_TEMP;
 #endif
-
+	
 	// start webserver
 	startServer();
+	// mqtt konfigurieren
+	setupMQTT();
 
 	// Configure time-service, mit Sommer/Winterzeit von einer Stunde
 	configTime(3600 * CONFIG.timezone, 1 * 3600, "0.pool.ntp.org", "time.nist.gov", "1.pool.ntp.org");
@@ -949,7 +1111,7 @@ void loop() {
 #ifdef FEATURE_OTA
 	ArduinoOTA.handle();
 #endif
-
+	mqttMaintain();
 
 #if defined(GEBURTSTAGE) || defined(TEMPERATURE)
 	unsigned long jetzt;

@@ -138,7 +138,7 @@ String GetTemperatureRealLocation(String city) {
     weatherstring = "https://wttr.in/" + city + "?1";    //Specify request destination
     //weatherstring = "/" + city + "?1";    //Specify request destination
 
-    Serial.println(weatherstring);
+    //Serial.println(weatherstring);
 
     // Die HTTP-Antwort ist zu groß zum Lesen-In-Einem-Stück >25kB also stückweise lesen und gleich suchen nach Location: ... [
     l_client.setInsecure();
