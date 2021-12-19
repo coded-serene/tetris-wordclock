@@ -2,14 +2,14 @@
 #include <Arduino.h>
 #include <WebServer.h>
 #include "MyWC12x12_config.h"
-
-//#include <ESP8266WebServer.h>
-
-
 #include "MyWC12x12.h"
 #include "MyWC12x12_webserver.h"
 #include "MyWC12x12_temperatur.h"
+#include "main.h"
 
+
+// forward decl
+void managePathArgsTetrisGame(void) ;
 
 //
 // interne Funktionen
@@ -70,7 +70,7 @@ String htmlOption(String label, String value, String store) {
 
 // Hauptformular
 //
-String getTimeForm() {
+String getFormRoot() {
   String content = "";
   String label = "";
 
@@ -209,18 +209,18 @@ String getTimeForm() {
 
 /* MQTT-Config */
   content += "<hr>";
-  content += "<h2>Netzwerk</h2>";
+  content += "<h2>Netzwerk / MQTT</h2>";
   content += "<div>";
   content += "<label>Hostname</label>";
   content += "<input name=\"txtNetworkHostname\" value=\"" + String(CONFIG.networkHostname) + "\">";
-  content += "<label>MQTT-ServerName</label>";
-  content += "<input name=\"txtMqttServer\" value=\"" + String(CONFIG.mqttServerName) + "\">";
+  content += "<label>MQTT-Server <x-small>(disabled if empty)</x-small></label>";
+  content += "<input name=\"txtMqttServer\" placeholder='leave empty to disable mqtt' value=\"" + String(CONFIG.mqttServerName) + "\">";
   content += "<label>MQTT-Port</label>";
   content += "<input name=\"txtMqttPort\" value=\"" + String(CONFIG.mqttPort) + "\">";
   content += "<label>MQTT-UserName (empty if unsecure)</label>";
   content += "<input name=\"txtMqttUserName\" value=\"" + String(CONFIG.mqttUserName) + "\" >";
   content += "<label>MQTT-Password</label>";
-  content += "<input name=\"txtMqttPassword\" value=\"" + String(CONFIG.mqttPassword) + "\" >";
+  content += "<input type='password' name=\"txtMqttPassword\" value=\"" + String(CONFIG.mqttPassword) + "\" >";
   content += "</div>";
 /////////////////////
 #ifdef GEBURTSTAGE
@@ -268,7 +268,7 @@ String getTimeForm() {
 //
 //	Argumente des http-request auslesen und die Änderungen erzwingen
 //
-void change() {
+void managePathArgsRoot() {
 
 	/*
 	for (int i = 0; i < server.args(); i++)
@@ -361,13 +361,11 @@ void change() {
 			restart();
 		}
 	}
+
 }
-
-void handleRootPath() {
+String getFormHeaderHtml(void) 
+{
   String content = "";
-
-  change();
-
   content += "<!DOCTYPE html><html>";
   content += "<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">";
   content += "<style>\n";
@@ -385,10 +383,76 @@ void handleRootPath() {
   content += "</style>\n";
   content += "</head>\n";
   content += "<body>\n";
+  return content;
+}
+String getFormTetrisGame(void) 
+{
+  String content = getFormHeaderHtml();
+  
+  content += "<h1 align=center >WordClock Konfiguration</h1>";
+  content += "<form class=\"form\" method=\"post\" action=\"\">";
 
+  content += "<div>";
+  content += "<button name=\"submit\" type=\"submit\" value=\"right\">Rechts</button>";
+  content += "</div>";
+  content += "<div>";
+  content += "<button name=\"submit\" type=\"submit\" value=\"left\">Links</button>";
+  content += "</div>";
+  
+  content += "<div> <button name='submit' type='submit' value='flip'>Drehen</button> </div>";
+  content += "<div> <button name='submit' type='submit' value='down'>Runter</button> </div>";
+  content += "<br/><br/><div> <button class='danger' name='submit' type='submit' value='back'>Start/Restart Game</button> </div>";
 
+  content += "</form>";
+  content += "</body></html>";
 
-  content += "<h1 align=center>WordClock Konfiguration</h1>";
+  return content;
+}
+void handleTetrisGame(void)
+{
+  managePathArgsTetrisGame();
+
+  String content = getFormTetrisGame();
+
+  server.sendHeader("Location", "http://" + ip+"/tetris");
+  server.send(200, "text/html", content);
+
+}
+//
+//	Argumente des http-request auslesen und die Änderungen erzwingen
+//
+void managePathArgsTetrisGame(void) 
+{
+
+	/*
+	for (int i = 0; i < server.args(); i++)
+	{
+		Serial.println(server.argName(i) + " = " + server.arg(i));
+	}
+	*/
+
+	if (server.hasArg("submit")) 
+  {
+    gameCommand cmd = gameCommand::GameCommandNone; 
+    if (server.hasArg("right"))	{cmd = gameCommand::GameCommandRight;  }
+    if (server.hasArg("left")) 	{cmd = gameCommand::GameCommandLeft; }
+    if (server.hasArg("flip")) 	{cmd = gameCommand::GameCommandFire;  }
+    if (server.hasArg("down")) 	{cmd = gameCommand::GameCommandDown;  }
+    if (server.hasArg("back"))  {cmd = gameCommand::GameCommandStartStop; }
+
+    handleTetrisCommand(cmd);
+	}
+
+  
+}
+void handleRootPath()
+{
+  managePathArgsRoot();
+
+  String content = getFormHeaderHtml();
+
+  content += "<hr/><br/><div class='tetrislink'><a class='tetrislink' href=http://"+ip+"/tetris>Tetris starten</a></div><br/><hr/>";
+  content += "<h1 align=center>WordClockEx Konfiguration</h1>";
   content += "<form class=\"form\" method=\"post\" action=\"\">";
 
   content += "<div>";
@@ -396,7 +460,7 @@ void handleRootPath() {
   content += "<div>";
 
   content += "<div>";
-  content += getTimeForm();
+  content += getFormRoot();
   content += "</div>";
 
   content += "<div>";
@@ -445,6 +509,7 @@ void handleRootPath() {
 
 void startServer() {
   server.on("/", handleRootPath);
+  server.on("/tetris", handleTetrisGame);
   server.begin();
 }
 
