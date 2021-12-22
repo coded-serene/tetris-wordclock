@@ -991,6 +991,10 @@ void LoopMyWc(void) {
 		if ((g_minute % 5 == 0) && (WiFi.status() != WL_CONNECTED)) {
 			// alle 5 Minuten
 			// Falls das WLAN nicht funktioniert, reconnect versuchen
+			// hier wird ggf. der AP-Mode aktiviert!!
+			// das wollen wir aber maximal 5 Minuten! --> dann wieder wifi retry
+			// (--> vielleicht war wifi nur temporär nicht verfügbar (Nachtschaltung!))
+			wifiManager.setConfigPortalTimeout(5*60); 
             (void)wifiManager.autoConnect(CONFIG.networkHostname.c_str());
         }
 	}
